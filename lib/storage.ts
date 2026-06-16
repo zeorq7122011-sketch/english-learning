@@ -21,10 +21,29 @@ export interface UserProgress {
 
 const STORAGE_KEY = "english_learning_progress"
 
+function buildDefaultProgress(): UserProgress {
+  const records: Record<number, LessonRecord> = {}
+  for (let d = 1; d <= 7; d++) {
+    records[d] = {
+      day: d,
+      week: 1,
+      title: `Day ${d}`,
+      completed: true,
+      completedAt: new Date("2026-06-07").toISOString(),
+      exercises: [],
+    }
+  }
+  return { currentDay: 8, records }
+}
+
 export function getProgress(): UserProgress {
-  if (typeof window === "undefined") return { currentDay: 8, records: {} }
+  if (typeof window === "undefined") return buildDefaultProgress()
   const raw = localStorage.getItem(STORAGE_KEY)
-  if (!raw) return { currentDay: 8, records: {} }
+  if (!raw) {
+    const defaultProgress = buildDefaultProgress()
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultProgress))
+    return defaultProgress
+  }
   return JSON.parse(raw)
 }
 
