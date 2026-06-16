@@ -7,8 +7,9 @@ export function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
+  const token = `${process.env.SITE_USERNAME}:${process.env.SITE_PASSWORD}`
   const auth = req.cookies.get("auth")?.value
-  if (auth !== process.env.SITE_PASSWORD) {
+  if (auth !== token) {
     return NextResponse.redirect(new URL("/login", req.url))
   }
 
