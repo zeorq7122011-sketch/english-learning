@@ -27,6 +27,7 @@ export interface Learner {
   startDay: number
   assessmentScore?: number
   pin?: string
+  customGoal?: string
   createdAt: string
 }
 

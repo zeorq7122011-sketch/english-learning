@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect, useState, use } from "react"
-import { getLessonByDay, getStageLabel } from "@/lib/lessons"
-import { addExercise, markLessonComplete, getLessonRecord } from "@/lib/storage"
+import { getLessonByDay, LessonTopic, getStageLabel } from "@/lib/lessons"
+import { addExercise, markLessonComplete, getLessonRecord, getActiveLearner, getLearners } from "@/lib/storage"
 import Link from "next/link"
 
 interface Pattern {
@@ -37,8 +37,9 @@ interface FeedbackData {
 export default function LessonPage({ params }: { params: Promise<{ day: string }> }) {
   const { day: dayStr } = use(params)
   const day = parseInt(dayStr)
-  const topic = getLessonByDay(day)
 
+  const [topic, setTopic] = useState<LessonTopic | undefined>(undefined)
+  const [courseReady, setCourseReady] = useState(false)
   const [lesson, setLesson] = useState<LessonData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -50,12 +51,24 @@ export default function LessonPage({ params }: { params: Promise<{ day: string }
   const [askAnswer, setAskAnswer] = useState("")
   const [asking, setAsking] = useState(false)
 
+  // Load active learner's course info, then find the correct lesson topic
   useEffect(() => {
-    if (!topic) return
+    const id = getActiveLearner()
+    const learners = getLearners()
+    const learner = id ? learners.find((l) => l.id === id) : null
+    const courseType = learner?.courseType ?? "qc-english"
+    const customGoal = learner?.customGoal
+    setTopic(getLessonByDay(day, courseType, customGoal))
+    setCourseReady(true)
+  }, [day])
+
+  useEffect(() => {
+    if (!courseReady || !topic) return
     const record = getLessonRecord(day)
     if (record?.completed) setCompleted(true)
     fetchLesson()
-  }, [day])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courseReady, day])
 
   async function fetchLesson() {
     if (!topic) return

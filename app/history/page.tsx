@@ -1,20 +1,25 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { getProgress, UserProgress, LessonRecord } from "@/lib/storage"
-import { LESSON_TOPICS } from "@/lib/lessons"
+import { getProgress, UserProgress, LessonRecord, getActiveLearner, getLearners, Learner } from "@/lib/storage"
+import { getLessonsForCourse, LessonTopic } from "@/lib/lessons"
 import Link from "next/link"
 
 export default function HistoryPage() {
   const [progress, setProgress] = useState<UserProgress | null>(null)
+  const [lessons, setLessons] = useState<LessonTopic[]>([])
 
   useEffect(() => {
+    const id = getActiveLearner()
+    const learners = getLearners()
+    const learner: Learner | undefined = id ? learners.find((l) => l.id === id) : undefined
+    setLessons(getLessonsForCourse(learner?.courseType ?? "qc-english", learner?.customGoal))
     setProgress(getProgress())
   }, [])
 
   if (!progress) return null
 
-  const allLessons = LESSON_TOPICS.map((topic) => ({
+  const allLessons = lessons.map((topic) => ({
     topic,
     record: progress.records[topic.day] as LessonRecord | undefined,
   }))
@@ -42,9 +47,7 @@ export default function HistoryPage() {
 
       {inProgress.length > 0 && (
         <div>
-          <h2 className="text-xs font-semibold mb-2" style={{ color: "#94a3b8" }}>
-            IN PROGRESS
-          </h2>
+          <h2 className="text-xs font-semibold mb-2" style={{ color: "#94a3b8" }}>IN PROGRESS</h2>
           <div className="space-y-2">
             {inProgress.map(({ topic, record }) => (
               <LessonCard key={topic.day} day={topic.day} title={topic.title} chinese={topic.chineseTitle} record={record} done={false} />
@@ -55,11 +58,9 @@ export default function HistoryPage() {
 
       {completed.length > 0 && (
         <div>
-          <h2 className="text-xs font-semibold mb-2" style={{ color: "#94a3b8" }}>
-            COMPLETED
-          </h2>
+          <h2 className="text-xs font-semibold mb-2" style={{ color: "#94a3b8" }}>COMPLETED</h2>
           <div className="space-y-2">
-            {completed.reverse().map(({ topic, record }) => (
+            {[...completed].reverse().map(({ topic, record }) => (
               <LessonCard key={topic.day} day={topic.day} title={topic.title} chinese={topic.chineseTitle} record={record} done={true} />
             ))}
           </div>
@@ -69,18 +70,8 @@ export default function HistoryPage() {
   )
 }
 
-function LessonCard({
-  day,
-  title,
-  chinese,
-  record,
-  done,
-}: {
-  day: number
-  title: string
-  chinese: string
-  record?: LessonRecord
-  done: boolean
+function LessonCard({ day, title, chinese, record, done }: {
+  day: number; title: string; chinese: string; record?: LessonRecord; done: boolean
 }) {
   const exerciseCount = record?.exercises.length || 0
   const completedAt = record?.completedAt ? new Date(record.completedAt).toLocaleDateString("zh-TW") : null
@@ -92,9 +83,7 @@ function LessonCard({
       style={{ background: "#1e293b" }}
     >
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-white truncate">
-          Day {day}: {title}
-        </p>
+        <p className="text-sm font-medium text-white truncate">Day {day}: {title}</p>
         <p className="text-xs mt-0.5" style={{ color: "#94a3b8" }}>
           {chinese}
           {exerciseCount > 0 && ` · ${exerciseCount} exercises`}

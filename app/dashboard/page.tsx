@@ -3,8 +3,24 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { getProgress, UserProgress, getActiveLearner, getLearners, Learner } from "@/lib/storage"
-import { LESSON_TOPICS, getStageLabel } from "@/lib/lessons"
+import { getLessonsForCourse, getStageLabel } from "@/lib/lessons"
 import Link from "next/link"
+
+const COURSE_LABEL: Record<string, string> = {
+  "qc-english": "工廠/品質英文",
+  daily: "日常對話",
+  business: "商業英文",
+  travel: "旅遊英文",
+  custom: "自訂課程",
+}
+
+const OTHER_COURSES = [
+  { id: "qc-english", label: "工廠/品質英文", emoji: "🏭" },
+  { id: "daily", label: "日常對話", emoji: "💬" },
+  { id: "business", label: "商業英文", emoji: "💼" },
+  { id: "travel", label: "旅遊英文", emoji: "✈️" },
+  { id: "custom", label: "自訂課程", emoji: "✏️" },
+]
 
 export default function Dashboard() {
   const [progress, setProgress] = useState<UserProgress | null>(null)
@@ -13,10 +29,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     const id = getActiveLearner()
-    if (!id) {
-      router.replace("/")
-      return
-    }
+    if (!id) { router.replace("/"); return }
     const learners = getLearners()
     const found = learners.find((l) => l.id === id) ?? null
     setLearner(found)
@@ -25,20 +38,25 @@ export default function Dashboard() {
 
   if (!progress || !learner) return null
 
+  const lessons = getLessonsForCourse(learner.courseType, learner.customGoal)
   const currentDay = progress.currentDay
-  const currentLesson = LESSON_TOPICS.find((l) => l.day === currentDay)
+  const currentLesson = lessons.find((l) => l.day === currentDay)
   const completedDays = Object.values(progress.records).filter((r) => r.completed).length
-  const totalDays = LESSON_TOPICS.length
+  const totalDays = lessons.length
   const streak = getStreak(progress)
+  const allDone = completedDays >= totalDays
+
+  const otherCourses = OTHER_COURSES.filter((c) => c.id !== learner.courseType)
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">
-          Welcome back, {learner.name}!
-        </h1>
+        <h1 className="text-2xl font-bold text-white">Welcome back, {learner.name}!</h1>
         <p style={{ color: "#94a3b8" }} className="mt-1 text-sm">
-          Keep going — consistency is everything.
+          {COURSE_LABEL[learner.courseType] ?? learner.courseType}
+          {learner.customGoal && (
+            <span style={{ color: "#64748b" }}> — {learner.customGoal}</span>
+          )}
         </p>
       </div>
 
@@ -66,7 +84,39 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {currentLesson && (
+      {/* Course Completed Banner */}
+      {allDone && (
+        <div
+          style={{
+            background: "linear-gradient(135deg, #052e16, #0f4c23)",
+            border: "1px solid #22c55e",
+            borderRadius: 16,
+            padding: "24px",
+          }}
+        >
+          <p className="text-3xl mb-2">🎉</p>
+          <h2 className="text-xl font-bold text-white mb-1">恭喜完成所有課程！</h2>
+          <p className="text-sm mb-4" style={{ color: "#86efac" }}>
+            你已經完成了{COURSE_LABEL[learner.courseType] ?? "這套課程"}的全部 {totalDays} 天！
+          </p>
+          <p className="text-xs font-semibold mb-3" style={{ color: "#4ade80" }}>繼續挑戰其他課程：</p>
+          <div className="flex flex-wrap gap-2">
+            {otherCourses.map((c) => (
+              <Link
+                key={c.id}
+                href={`/setup?course=${c.id}`}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-80"
+                style={{ background: "#166534", color: "#22c55e" }}
+              >
+                {c.emoji} {c.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Today's Lesson */}
+      {!allDone && currentLesson && (
         <div
           style={{
             background: "#1e293b",
@@ -83,18 +133,12 @@ export default function Dashboard() {
               <h2 className="text-xl font-bold text-white">
                 Day {currentDay}: {currentLesson.title}
               </h2>
-              <p style={{ color: "#94a3b8" }} className="text-sm mt-1">
-                {currentLesson.chineseTitle}
-              </p>
+              <p style={{ color: "#94a3b8" }} className="text-sm mt-1">{currentLesson.chineseTitle}</p>
             </div>
             <span
               style={{
-                background: "#166534",
-                color: "#22c55e",
-                borderRadius: 99,
-                padding: "4px 12px",
-                fontSize: 12,
-                fontWeight: 600,
+                background: "#166534", color: "#22c55e", borderRadius: 99,
+                padding: "4px 12px", fontSize: 12, fontWeight: 600,
               }}
             >
               Today
@@ -110,12 +154,14 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Recent Lessons */}
       <div>
         <h3 className="text-sm font-semibold mb-3" style={{ color: "#94a3b8" }}>
           RECENT LESSONS
         </h3>
         <div className="space-y-2">
-          {LESSON_TOPICS.filter((l) => l.day < currentDay)
+          {lessons
+            .filter((l) => l.day < currentDay)
             .slice(-5)
             .reverse()
             .map((lesson) => {
@@ -152,9 +198,7 @@ function StatCard({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ background: "#1e293b", borderRadius: 12, padding: "16px" }} className="text-center">
       <p className="text-2xl font-bold text-white">{value}</p>
-      <p className="text-xs mt-1" style={{ color: "#94a3b8" }}>
-        {label}
-      </p>
+      <p className="text-xs mt-1" style={{ color: "#94a3b8" }}>{label}</p>
     </div>
   )
 }
@@ -166,17 +210,13 @@ function getStreak(progress: UserProgress): number {
     .map((r) => new Date(r.completedAt!).toDateString())
     .filter((v, i, a) => a.indexOf(v) === i)
     .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
-
   let streak = 0
   const today = new Date()
   for (let i = 0; i < dates.length; i++) {
     const d = new Date(today)
     d.setDate(d.getDate() - i)
-    if (dates[i] === d.toDateString()) {
-      streak++
-    } else {
-      break
-    }
+    if (dates[i] === d.toDateString()) streak++
+    else break
   }
   return streak
 }

@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation"
 import { saveLearner, setActiveLearner, Learner } from "@/lib/storage"
 
 const COURSE_TYPES = [
-  { id: "qc-english", label: "工廠/品質英文", desc: "QC、供應商、品質報告", emoji: "🏭", available: true },
-  { id: "daily", label: "日常對話", desc: "生活、社交、購物", emoji: "💬", available: false },
-  { id: "business", label: "商業英文", desc: "會議、簡報、談判", emoji: "💼", available: false },
-  { id: "travel", label: "旅遊英文", desc: "機場、飯店、觀光", emoji: "✈️", available: false },
+  { id: "qc-english", label: "工廠/品質英文", desc: "QC、供應商、品質報告", emoji: "🏭" },
+  { id: "daily", label: "日常對話", desc: "生活、社交、購物", emoji: "💬" },
+  { id: "business", label: "商業英文", desc: "會議、簡報、談判", emoji: "💼" },
+  { id: "travel", label: "旅遊英文", desc: "機場、飯店、觀光", emoji: "✈️" },
+  { id: "custom", label: "自訂課程", desc: "告訴我你想學什麼", emoji: "✏️" },
 ]
 
 const QUESTIONS = [
@@ -40,6 +41,7 @@ export default function SetupPage() {
   const [step, setStep] = useState(1)
   const [name, setName] = useState("")
   const [courseType, setCourseType] = useState("qc-english")
+  const [customGoal, setCustomGoal] = useState("")
   const [selections, setSelections] = useState<(number | null)[]>(Array(QUESTIONS.length).fill(null))
   const [score, setScore] = useState(0)
   const [submitted, setSubmitted] = useState(false)
@@ -52,24 +54,23 @@ export default function SetupPage() {
   }
 
   function handleFinish() {
-    const id = generateId(name.trim())
     const result = getLevel(score)
-
     const learner: Learner = {
-      id,
+      id: generateId(name.trim()),
       name: name.trim(),
       courseType,
       level: result.level,
       startDay: result.startDay,
       assessmentScore: score,
+      customGoal: courseType === "custom" ? customGoal.trim() : undefined,
       createdAt: new Date().toISOString(),
     }
-
     saveLearner(learner)
     setActiveLearner(learner.id)
     router.push("/dashboard")
   }
 
+  const canProceedStep2 = courseType !== "custom" || customGoal.trim().length >= 10
   const allAnswered = selections.every((s) => s !== null)
   const result = submitted ? getLevel(score) : null
 
@@ -81,22 +82,18 @@ export default function SetupPage() {
           <div key={s} className="flex items-center gap-2">
             <div
               style={{
-                width: 28,
-                height: 28,
-                borderRadius: "50%",
+                width: 28, height: 28, borderRadius: "50%",
                 background: step >= s ? "#22c55e" : "#334155",
                 color: step >= s ? "#0f172a" : "#64748b",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 13,
-                fontWeight: 700,
-                transition: "background 0.3s",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 13, fontWeight: 700, transition: "background 0.3s",
               }}
             >
               {s}
             </div>
-            {s < 4 && <div style={{ width: 32, height: 2, background: step > s ? "#22c55e" : "#334155", transition: "background 0.3s" }} />}
+            {s < 4 && (
+              <div style={{ width: 32, height: 2, background: step > s ? "#22c55e" : "#334155", transition: "background 0.3s" }} />
+            )}
           </div>
         ))}
       </div>
@@ -140,30 +137,39 @@ export default function SetupPage() {
             {COURSE_TYPES.map((ct) => (
               <button
                 key={ct.id}
-                disabled={!ct.available}
-                onClick={() => ct.available && setCourseType(ct.id)}
+                onClick={() => setCourseType(ct.id)}
                 className="relative text-left rounded-xl p-4 transition-all"
                 style={{
                   background: courseType === ct.id ? "#0f4c23" : "#0f172a",
                   border: `2px solid ${courseType === ct.id ? "#22c55e" : "#334155"}`,
-                  opacity: ct.available ? 1 : 0.45,
-                  cursor: ct.available ? "pointer" : "not-allowed",
                 }}
               >
                 <div className="text-2xl mb-2">{ct.emoji}</div>
                 <p className="font-semibold text-white text-sm">{ct.label}</p>
                 <p className="text-xs mt-0.5" style={{ color: "#64748b" }}>{ct.desc}</p>
-                {!ct.available && (
-                  <span
-                    className="absolute top-2 right-2 text-xs px-1.5 py-0.5 rounded"
-                    style={{ background: "#334155", color: "#64748b" }}
-                  >
-                    即將推出
-                  </span>
-                )}
               </button>
             ))}
           </div>
+
+          {courseType === "custom" && (
+            <div>
+              <p className="text-xs font-semibold mb-2" style={{ color: "#94a3b8" }}>
+                描述你的學習需求（至少 10 個字）
+              </p>
+              <textarea
+                value={customGoal}
+                onChange={(e) => setCustomGoal(e.target.value)}
+                placeholder="例如：我想學習如何跟外國客戶討論產品設計需求，需要能用英文開會、寫信…"
+                rows={4}
+                className="w-full rounded-lg px-4 py-3 text-sm outline-none resize-none"
+                style={{ background: "#0f172a", border: "1px solid #334155", color: "#f1f5f9" }}
+              />
+              <p className="text-xs mt-1" style={{ color: customGoal.trim().length >= 10 ? "#22c55e" : "#64748b" }}>
+                {customGoal.trim().length} / 10 個字以上
+              </p>
+            </div>
+          )}
+
           <div className="flex gap-3">
             <button
               onClick={() => setStep(1)}
@@ -173,9 +179,10 @@ export default function SetupPage() {
               ← 返回
             </button>
             <button
+              disabled={!canProceedStep2}
               onClick={() => setStep(3)}
               className="flex-1 py-3 rounded-lg font-semibold"
-              style={{ background: "#22c55e", color: "#0f172a" }}
+              style={{ background: "#22c55e", color: "#0f172a", opacity: canProceedStep2 ? 1 : 0.4 }}
             >
               繼續 →
             </button>
@@ -246,10 +253,7 @@ export default function SetupPage() {
       {step === 4 && result && (
         <div style={{ background: "#1e293b", borderRadius: 16, padding: 36 }} className="text-center space-y-6">
           <div>
-            <div
-              className="text-5xl font-bold mb-3"
-              style={{ color: result.color }}
-            >
+            <div className="text-5xl font-bold mb-3" style={{ color: result.color }}>
               {score}/10
             </div>
             <h2 className="text-2xl font-bold text-white mb-1">你的程度：{result.label}</h2>
@@ -262,11 +266,11 @@ export default function SetupPage() {
           >
             <p className="text-xs font-semibold mb-1" style={{ color: result.color }}>課程安排</p>
             <p className="text-white font-semibold">從 Day {result.startDay} 開始</p>
-            <p className="text-sm mt-0.5" style={{ color: "#64748b" }}>
-              {result.level === "beginner" && "從主詞與動詞基礎開始，一步步建立英文能力"}
-              {result.level === "intermediate" && "跳過基礎，從確認問題、說明原因等句型開始練習"}
-              {result.level === "advanced" && "直接進入閱讀 QC 郵件、撰寫報告的進階課程"}
-            </p>
+            {courseType === "custom" && customGoal && (
+              <p className="text-xs mt-1" style={{ color: "#64748b" }}>
+                客製化目標：{customGoal.trim()}
+              </p>
+            )}
           </div>
 
           <div style={{ background: "#0f172a", borderRadius: 12, padding: "12px 20px" }}>

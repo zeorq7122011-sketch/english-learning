@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { getLearners, saveLearner, Learner, setActiveLearner, getProgressForLearner } from "@/lib/storage"
-import { LESSON_TOPICS } from "@/lib/lessons"
+import { getLessonsForCourse } from "@/lib/lessons"
 import Link from "next/link"
 
 const LEVEL_COLOR: Record<string, string> = {
@@ -40,9 +40,7 @@ export default function LearnerSelector() {
   }, [])
 
   useEffect(() => {
-    if (modal) {
-      setTimeout(() => pinRef.current?.focus(), 50)
-    }
+    if (modal) setTimeout(() => pinRef.current?.focus(), 50)
   }, [modal])
 
   function openModal(learner: Learner) {
@@ -95,7 +93,6 @@ export default function LearnerSelector() {
   }
 
   const isSetup = modal && !modal.pin
-  const total = LESSON_TOPICS.length
 
   return (
     <>
@@ -112,6 +109,7 @@ export default function LearnerSelector() {
           {learners.map((learner) => {
             const progress = getProgressForLearner(learner.id)
             const completed = Object.values(progress.records).filter((r) => r.completed).length
+            const total = getLessonsForCourse(learner.courseType, learner.customGoal).length
             const pct = Math.round((completed / total) * 100)
             const color = LEVEL_COLOR[learner.level] ?? "#22c55e"
 
