@@ -34,7 +34,7 @@ export default function HistoryPage() {
       {completed.length === 0 && inProgress.length === 0 && (
         <div style={{ background: "#1e293b", borderRadius: 12, padding: 32, textAlign: "center" }}>
           <p style={{ color: "#94a3b8" }}>還沒有紀錄。去完成第一堂課吧！</p>
-          <Link href="/" className="mt-4 inline-block text-sm" style={{ color: "#22c55e" }}>
+          <Link href="/dashboard" className="mt-4 inline-block text-sm" style={{ color: "#22c55e" }}>
             Go to Today&apos;s Lesson →
           </Link>
         </div>

@@ -19,7 +19,26 @@ export interface UserProgress {
   records: Record<number, LessonRecord>
 }
 
+export interface Learner {
+  id: string
+  name: string
+  courseType: string
+  level: "beginner" | "intermediate" | "advanced"
+  startDay: number
+  assessmentScore?: number
+  pin?: string
+  createdAt: string
+}
+
 const STORAGE_KEY = "english_learning_progress"
+const LEARNERS_KEY = "english_learners"
+const ACTIVE_LEARNER_KEY = "active_learner"
+
+function getProgressKey(): string {
+  const id = getActiveLearner()
+  if (!id || id === "boxing") return STORAGE_KEY
+  return `${STORAGE_KEY}_${id}`
+}
 
 function buildDefaultProgress(): UserProgress {
   const records: Record<number, LessonRecord> = {}
@@ -36,19 +55,79 @@ function buildDefaultProgress(): UserProgress {
   return { currentDay: 8, records }
 }
 
+export function getLearners(): Learner[] {
+  if (typeof window === "undefined") return []
+  const raw = localStorage.getItem(LEARNERS_KEY)
+  if (!raw) {
+    const boxing: Learner = {
+      id: "boxing",
+      name: "Boxing",
+      courseType: "qc-english",
+      level: "intermediate",
+      startDay: 1,
+      createdAt: new Date("2026-06-01").toISOString(),
+    }
+    localStorage.setItem(LEARNERS_KEY, JSON.stringify([boxing]))
+    return [boxing]
+  }
+  return JSON.parse(raw)
+}
+
+export function saveLearner(learner: Learner): void {
+  const learners = getLearners()
+  const idx = learners.findIndex((l) => l.id === learner.id)
+  if (idx >= 0) {
+    learners[idx] = learner
+  } else {
+    learners.push(learner)
+  }
+  localStorage.setItem(LEARNERS_KEY, JSON.stringify(learners))
+}
+
+export function getActiveLearner(): string | null {
+  if (typeof window === "undefined") return null
+  return localStorage.getItem(ACTIVE_LEARNER_KEY)
+}
+
+export function setActiveLearner(id: string): void {
+  localStorage.setItem(ACTIVE_LEARNER_KEY, id)
+}
+
+export function getProgressForLearner(learnerId: string): UserProgress {
+  if (typeof window === "undefined") return buildDefaultProgress()
+  const key = learnerId === "boxing" ? STORAGE_KEY : `${STORAGE_KEY}_${learnerId}`
+  const raw = localStorage.getItem(key)
+  if (!raw) {
+    if (learnerId === "boxing") return buildDefaultProgress()
+    const learners = getLearners()
+    const learner = learners.find((l) => l.id === learnerId)
+    return { currentDay: learner?.startDay ?? 1, records: {} }
+  }
+  return JSON.parse(raw)
+}
+
 export function getProgress(): UserProgress {
   if (typeof window === "undefined") return buildDefaultProgress()
-  const raw = localStorage.getItem(STORAGE_KEY)
+  const key = getProgressKey()
+  const raw = localStorage.getItem(key)
   if (!raw) {
-    const defaultProgress = buildDefaultProgress()
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultProgress))
+    const learnerId = getActiveLearner()
+    let defaultProgress: UserProgress
+    if (!learnerId || learnerId === "boxing") {
+      defaultProgress = buildDefaultProgress()
+    } else {
+      const learners = getLearners()
+      const learner = learners.find((l) => l.id === learnerId)
+      defaultProgress = { currentDay: learner?.startDay ?? 1, records: {} }
+    }
+    localStorage.setItem(key, JSON.stringify(defaultProgress))
     return defaultProgress
   }
   return JSON.parse(raw)
 }
 
 export function saveProgress(progress: UserProgress): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(progress))
+  localStorage.setItem(getProgressKey(), JSON.stringify(progress))
 }
 
 export function getLessonRecord(day: number): LessonRecord | null {

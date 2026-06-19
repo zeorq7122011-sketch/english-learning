@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import "./globals.css"
+import NavLearner from "./components/NavLearner"
 
 export const metadata: Metadata = {
   title: "English Learning",
@@ -15,13 +16,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <a href="/" className="text-lg font-bold" style={{ color: "#22c55e" }}>
               English Learning
             </a>
-            <div className="flex gap-6 text-sm">
-              <a href="/" style={{ color: "#94a3b8" }} className="hover:text-white transition-colors">
+            <div className="flex items-center gap-6 text-sm">
+              <a href="/dashboard" style={{ color: "#94a3b8" }} className="hover:text-white transition-colors">
                 Today
               </a>
               <a href="/history" style={{ color: "#94a3b8" }} className="hover:text-white transition-colors">
                 History
               </a>
+              <NavLearner />
             </div>
           </div>
         </nav>
