@@ -40,6 +40,8 @@ export default function LessonPage({ params }: { params: Promise<{ day: string }
 
   const [topic, setTopic] = useState<LessonTopic | undefined>(undefined)
   const [courseReady, setCourseReady] = useState(false)
+  const [courseType, setCourseType] = useState("qc-english")
+  const [learnerLevel, setLearnerLevel] = useState("intermediate")
   const [lesson, setLesson] = useState<LessonData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -56,9 +58,11 @@ export default function LessonPage({ params }: { params: Promise<{ day: string }
     const id = getActiveLearner()
     const learners = getLearners()
     const learner = id ? learners.find((l) => l.id === id) : null
-    const courseType = learner?.courseType ?? "qc-english"
+    const ct = learner?.courseType ?? "qc-english"
     const customGoal = learner?.customGoal
-    setTopic(getLessonByDay(day, courseType, customGoal))
+    setCourseType(ct)
+    setLearnerLevel(learner?.level ?? "intermediate")
+    setTopic(getLessonByDay(day, ct, customGoal))
     setCourseReady(true)
   }, [day])
 
@@ -78,7 +82,7 @@ export default function LessonPage({ params }: { params: Promise<{ day: string }
       const res = await fetch("/api/lesson", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ day, title: topic.title, systemPrompt: topic.systemPrompt }),
+        body: JSON.stringify({ day, title: topic.title, systemPrompt: topic.systemPrompt, courseType, level: learnerLevel }),
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
@@ -108,6 +112,7 @@ export default function LessonPage({ params }: { params: Promise<{ day: string }
           userAnswer: answers[index],
           exerciseType: lesson.exercises[index].type,
           dayTopic: topic.title,
+          courseType,
         }),
       })
       const data = await res.json()
@@ -144,7 +149,7 @@ export default function LessonPage({ params }: { params: Promise<{ day: string }
       const res = await fetch("/api/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question, dayTopic: topic.title }),
+        body: JSON.stringify({ question, dayTopic: topic.title, courseType }),
       })
       const data = await res.json()
       setAskAnswer(data.answer || data.error)
@@ -159,6 +164,8 @@ export default function LessonPage({ params }: { params: Promise<{ day: string }
     markLessonComplete(day)
     setCompleted(true)
   }
+
+  if (!courseReady) return null
 
   if (!topic) {
     return (

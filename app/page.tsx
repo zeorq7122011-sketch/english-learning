@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { getLearners, saveLearner, Learner, setActiveLearner, getProgressForLearner } from "@/lib/storage"
+import { getLearners, saveLearner, Learner, setActiveLearner, getProgressForLearner, hydrateFromServer } from "@/lib/storage"
 import { getLessonsForCourse } from "@/lib/lessons"
 import Link from "next/link"
 
@@ -36,7 +36,7 @@ export default function LearnerSelector() {
   const router = useRouter()
 
   useEffect(() => {
-    setLearners(getLearners())
+    hydrateFromServer().then(() => setLearners(getLearners()))
   }, [])
 
   useEffect(() => {

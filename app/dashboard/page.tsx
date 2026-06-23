@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { getProgress, UserProgress, getActiveLearner, getLearners, Learner } from "@/lib/storage"
+import { getProgress, UserProgress, getActiveLearner, getLearners, Learner, hydrateFromServer } from "@/lib/storage"
 import { getLessonsForCourse, getStageLabel } from "@/lib/lessons"
 import Link from "next/link"
 
@@ -28,12 +28,16 @@ export default function Dashboard() {
   const router = useRouter()
 
   useEffect(() => {
-    const id = getActiveLearner()
-    if (!id) { router.replace("/"); return }
-    const learners = getLearners()
-    const found = learners.find((l) => l.id === id) ?? null
-    setLearner(found)
-    setProgress(getProgress())
+    const init = async () => {
+      const id = getActiveLearner()
+      if (!id) { router.replace("/"); return }
+      await hydrateFromServer()
+      const learners = getLearners()
+      const found = learners.find((l) => l.id === id) ?? null
+      setLearner(found)
+      setProgress(getProgress())
+    }
+    init()
   }, [router])
 
   if (!progress || !learner) return null

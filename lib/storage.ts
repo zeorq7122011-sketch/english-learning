@@ -83,6 +83,7 @@ export function saveLearner(learner: Learner): void {
     learners.push(learner)
   }
   localStorage.setItem(LEARNERS_KEY, JSON.stringify(learners))
+  syncToServer()
 }
 
 export function getActiveLearner(): string | null {
@@ -129,6 +130,50 @@ export function getProgress(): UserProgress {
 
 export function saveProgress(progress: UserProgress): void {
   localStorage.setItem(getProgressKey(), JSON.stringify(progress))
+  syncToServer()
+}
+
+function syncToServer(): void {
+  if (typeof window === "undefined") return
+  const id = getActiveLearner() ?? "boxing"
+  const progress = getProgress()
+  const learners = getLearners()
+  fetch("/api/sync", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, progress, learners }),
+  }).catch(() => {})
+}
+
+export async function hydrateFromServer(): Promise<void> {
+  if (typeof window === "undefined") return
+  try {
+    const id = getActiveLearner() ?? "boxing"
+    const res = await fetch(`/api/sync?id=${encodeURIComponent(id)}`)
+    if (!res.ok) return
+    const { progress, learners } = await res.json()
+
+    if (progress) {
+      const key = id === "boxing" ? STORAGE_KEY : `${STORAGE_KEY}_${id}`
+      const localRaw = localStorage.getItem(key)
+      const local: UserProgress | null = localRaw ? JSON.parse(localRaw) : null
+      const serverBetter =
+        !local ||
+        progress.currentDay > local.currentDay ||
+        Object.keys(progress.records).length > Object.keys(local.records).length
+      if (serverBetter) localStorage.setItem(key, JSON.stringify(progress))
+    }
+
+    if (learners && Array.isArray(learners)) {
+      const localRaw = localStorage.getItem(LEARNERS_KEY)
+      const local: unknown[] = localRaw ? JSON.parse(localRaw) : []
+      if (learners.length >= local.length) {
+        localStorage.setItem(LEARNERS_KEY, JSON.stringify(learners))
+      }
+    }
+  } catch {
+    // offline — use localStorage
+  }
 }
 
 export function getLessonRecord(day: number): LessonRecord | null {
@@ -153,11 +198,12 @@ export function addExercise(day: number, exercise: ExerciseRecord, lessonTitle: 
 
 export function markLessonComplete(day: number): void {
   const progress = getProgress()
-  if (progress.records[day]) {
-    progress.records[day].completed = true
-    progress.records[day].completedAt = new Date().toISOString()
+  if (!progress.records[day]) {
+    progress.records[day] = { day, week: Math.ceil(day / 7), title: `Day ${day}`, completed: false, exercises: [] }
   }
-  if (day === progress.currentDay) {
+  progress.records[day].completed = true
+  progress.records[day].completedAt = new Date().toISOString()
+  if (day >= progress.currentDay) {
     progress.currentDay = day + 1
   }
   saveProgress(progress)
